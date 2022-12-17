@@ -1,0 +1,235 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>assignment6.md</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__html"><h1 id="assignment-6-latice-exploration-for-functional-dependencies">Assignment 6: Latice exploration for functional dependencies</h1>
+<p>Robin Pourtaud DS<br>
+<a href="https://github.com/RobinPourtaud/DDDI-Assignment6">https://github.com/RobinPourtaud/DDDI-Assignment6</a></p>
+<h2 id="the-algorithm">The algorithm</h2>
+<h3 id="test-functional-dependency-function">Test Functional Dependency function</h3>
+<p>The test functional dependency function is a function that takes a pandas dataframe and X and Y such that X-&gt;Y is a functional dependency to test.</p>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">def</span> <span class="token function">test_fd</span><span class="token punctuation">(</span>df<span class="token punctuation">,</span>X<span class="token punctuation">,</span> Y<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> df<span class="token punctuation">.</span>groupby<span class="token punctuation">(</span>X<span class="token punctuation">)</span><span class="token punctuation">[</span>Y<span class="token punctuation">]</span><span class="token punctuation">.</span>nunique<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>le<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token builtin">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token builtin">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+</code></pre>
+<p>This function group by X and check if the number of unique values of Y is less or equal to 1. If it is, then X-&gt;Y is a functional dependency.</p>
+<p>For example, if we have the following dataframe:</p>
+
+<table>
+<thead>
+<tr>
+<th>A</th>
+<th>B</th>
+<th>C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>1</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>1</td>
+<td>2</td>
+<td>1</td>
+</tr>
+</tbody>
+</table><p>If we test the functional dependency B-&gt;C, we will get the following result:</p>
+<pre class=" language-python"><code class="prism  language-python">df <span class="token operator">=</span> pd<span class="token punctuation">.</span>DataFrame<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">'A'</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">'B'</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">'C'</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+df<span class="token punctuation">.</span>groupby<span class="token punctuation">(</span><span class="token string">'B'</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token string">'C'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>nunique<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</code></pre>
+
+<table>
+<thead>
+<tr>
+<th>B</th>
+<th>C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1</td>
+</tr>
+</tbody>
+</table><p>All values of C are not less or equal to 1, so B-&gt;C is not a functional dependency.</p>
+<p>Why le(1) and not eq(1)? Because we can have null values in the dataframe.</p>
+<h3 id="explore-latice-function">Explore Latice function</h3>
+<p>In this project, we are looking to find a smart way to explore the latice of combinations. That being said, I propose to compute the minimal functional dependencies. Since all dependencies can be derived from the minimal ones, we don’t need to go accross the whole latice.</p>
+<p>Smart exploration of the latice seems to have been studied a lot. I found easily some paper like : <a href="https://citeseerx.ist.psu.edu/document?repid=rep1&amp;type=pdf&amp;doi=2dfe42d8987c9f64456aee9d60aa392a3a6d5099">https://citeseerx.ist.psu.edu/document?repid=rep1&amp;type=pdf&amp;doi=2dfe42d8987c9f64456aee9d60aa392a3a6d5099</a> that answer the question for all functional dependencies. This is why I tried to focus on the minimal functional dependencies.</p>
+<p>By minimal functional dependencies, I mean that if A -&gt; B, then Ax -&gt; B for all x. So we only need to find the keys. This thinking will cut a lot of useless checks ! (I hope).</p>
+<p>To compare the speed of the algorithm, I propose to compare the speed time of the naive approach with the optimized one.</p>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">def</span> latice_exploration_naïve<span class="token punctuation">(</span>df<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""Explore the latice of combinations to find functionnal dependencies.
+
+    Args:
+        df (pandas.DataFrame): Dataframe with the data to explore
+    Returns:
+        list: List of functionnal dependencies
+    """</span>
+    <span class="token keyword">def</span> <span class="token function">test_fd</span><span class="token punctuation">(</span>X<span class="token punctuation">,</span> Y<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> df<span class="token punctuation">.</span>groupby<span class="token punctuation">(</span>X<span class="token punctuation">)</span><span class="token punctuation">[</span>Y<span class="token punctuation">]</span><span class="token punctuation">.</span>nunique<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>le<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token builtin">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token builtin">all</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    rules <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    <span class="token keyword">for</span> y <span class="token keyword">in</span> df<span class="token punctuation">.</span>columns<span class="token punctuation">:</span>
+        <span class="token keyword">for</span> n <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>df<span class="token punctuation">.</span>columns<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token keyword">for</span> X <span class="token keyword">in</span> itertools<span class="token punctuation">.</span>combinations<span class="token punctuation">(</span><span class="token builtin">set</span><span class="token punctuation">(</span>df<span class="token punctuation">.</span>columns<span class="token punctuation">)</span> <span class="token operator">-</span> <span class="token punctuation">{</span>y<span class="token punctuation">}</span><span class="token punctuation">,</span> n<span class="token punctuation">)</span><span class="token punctuation">:</span>
+                <span class="token keyword">if</span> test_fd<span class="token punctuation">(</span><span class="token builtin">list</span><span class="token punctuation">(</span>X<span class="token punctuation">)</span><span class="token punctuation">,</span> y<span class="token punctuation">)</span><span class="token punctuation">:</span>
+                    rules<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">(</span>X<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>y<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> rules
+</code></pre>
+<p>Here is the pseudo code of the optimized algorithm:</p>
+<p><strong>Algorithm</strong></p>
+<ol>
+<li>Initial candidates : <span class="katex--inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">{</mo><mo stretchy="false">(</mo><mi>A</mi><mo stretchy="false">)</mo><mo separator="true">,</mo><mo stretchy="false">(</mo><mi>B</mi><mo stretchy="false">)</mo><mo separator="true">,</mo><mo>…</mo><mo stretchy="false">}</mo></mrow><annotation encoding="application/x-tex">\{(A), (B), \ldots \}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mopen">{(</span><span class="mord mathnormal">A</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.166667em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right: 0.05017em;">B</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.166667em;"></span><span class="minner">…</span><span class="mclose">}</span></span></span></span></span> (all variables)</li>
+<li>Check <span class="katex--inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∀</mi><mi>x</mi><mo separator="true">,</mo><mi>y</mi><mo>∈</mo><mi>c</mi><mi>a</mi><mi>n</mi><mi>d</mi><mi>i</mi><mi>d</mi><mi>a</mi><mi>t</mi><mi>e</mi><mi>s</mi></mrow><annotation encoding="application/x-tex">\forall x,y \in candidates</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.88888em; vertical-align: -0.19444em;"></span><span class="mord">∀</span><span class="mord mathnormal">x</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.166667em;"></span><span class="mord mathnormal" style="margin-right: 0.03588em;">y</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.69444em; vertical-align: 0em;"></span><span class="mord mathnormal">c</span><span class="mord mathnormal">an</span><span class="mord mathnormal">d</span><span class="mord mathnormal">i</span><span class="mord mathnormal">d</span><span class="mord mathnormal">a</span><span class="mord mathnormal">t</span><span class="mord mathnormal">es</span></span></span></span></span> if <span class="katex--inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>→</mo><mi>y</mi></mrow><annotation encoding="application/x-tex">x\rightarrow y</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.43056em; vertical-align: 0em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.625em; vertical-align: -0.19444em;"></span><span class="mord mathnormal" style="margin-right: 0.03588em;">y</span></span></span></span></span> is a functional dependency</li>
+<li>If it is, add <span class="katex--inline"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>→</mo><mi>y</mi></mrow><annotation encoding="application/x-tex">x\rightarrow y</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.43056em; vertical-align: 0em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.625em; vertical-align: -0.19444em;"></span><span class="mord mathnormal" style="margin-right: 0.03588em;">y</span></span></span></span></span> to the list of FDs and remove x from candidates. We don’t care about x and its supersets anymore.</li>
+<li>If it’s not, then add x to the temporary candidates list.</li>
+<li>Create the new candidates by a union of the temporary candidates. We keep only the union that are relevant. For example {(A,B), (A,C)} will not create {(A,B,C)} because we need to have {(A,B), (A,C), (B,C)} to create it! We ignore the rest.</li>
+<li>Repeat 2 to 5 until candidates is empty.</li>
+<li>Return the list of FDs.</li>
+</ol>
+<p>The source code of the algorithm is on the notebook on github. <a href="https://github.com/RobinPourtaud/DDDI-Assignment6">https://github.com/RobinPourtaud/DDDI-Assignment6</a></p>
+<p>In the future, it could be interesting inspire ourselves from algorithms like FD_Mine or TANE.</p>
+<h2 id="results">Results</h2>
+<blockquote>
+<p>The results for naive can be different from <a href="https://hpi.de/naumann/projects/repeatability/data-profiling/fds.html#c168191">https://hpi.de/naumann/projects/repeatability/data-profiling/fds.html#c168191</a> because for effeciency reasons, I didn’t group rules. Like A-&gt;B and A-&gt;C count for 2 in my case, but only 1 on the website because A-&gt;B,C.</p>
+</blockquote>
+<blockquote>
+<p>The number of results can"t be compared between the two algorithms because the naive check every dependencies, while the optimized one only check the minimal ones. The number is obviously different.</p>
+</blockquote>
+<blockquote>
+<p>You can check results on the notebook if you want. You can also see directly the results using the function <code>latice_exploration</code> and the args <code>prettyPrint</code> set to True.</p>
+</blockquote>
+<p>If “&gt;2000s” is written, it means that the algorithm took more than 2000 seconds to run. I considered that it was too long to wait for a results -&gt; Time out. The results are set by default to 0.</p>
+
+<table>
+<thead>
+<tr>
+<th>Filename</th>
+<th>TimeOpti</th>
+<th>TimeNaive</th>
+<th>ResOpti</th>
+<th>ResNaive</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>abalone.csv</td>
+<td>1.1113157272338867</td>
+<td>3.112067222595215</td>
+<td>34</td>
+<td>783</td>
+</tr>
+<tr>
+<td>adult.csv</td>
+<td>425.96985125541687</td>
+<td>&gt;2000s</td>
+<td>17</td>
+<td>0</td>
+</tr>
+<tr>
+<td>balance-scale.csv</td>
+<td>0.02011585235595703</td>
+<td>0.02033233642578125</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>breast-cancer-wisconsin.csv</td>
+<td>1.5519657135009766</td>
+<td>5.027352333068848</td>
+<td>25</td>
+<td>1713</td>
+</tr>
+<tr>
+<td>bridges.csv</td>
+<td>2.7577059268951416</td>
+<td>22.932160139083862</td>
+<td>69</td>
+<td>37926</td>
+</tr>
+<tr>
+<td>chess.csv</td>
+<td>0.8559975624084473</td>
+<td>1.4479122161865234</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>echocardiogram.csv</td>
+<td>2.5449798107147217</td>
+<td>21.139954328536987</td>
+<td>393</td>
+<td>44583</td>
+</tr>
+<tr>
+<td>flight_1k.csv</td>
+<td>&gt;2000s</td>
+<td>&gt;2000s</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>hepatitis.csv</td>
+<td>&gt;2000s</td>
+<td>&gt;2000s</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>horse.csv</td>
+<td>&gt;2000s</td>
+<td>&gt;2000s</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>iris.csv</td>
+<td>0.026702404022216797</td>
+<td>0.022899627685546875</td>
+<td>4</td>
+<td>5</td>
+</tr>
+<tr>
+<td>letter.csv</td>
+<td>&gt;2000s</td>
+<td>&gt;2000s</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>nursery.csv</td>
+<td>2.5882556438446045</td>
+<td>5.732923984527588</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr>
+<td>plista_1k.csv</td>
+<td>&gt;2000s</td>
+<td>&gt;2000s</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table><p>We can see that for very small values, like iris, the naive approach can be a little faster, but for every other cases, the optimized approach is way faster. A further statistical analysis would not be necessary because the comparison between results is clear but the comparison between algorithm is not very fair.</p>
+</div>
+</body>
+
+</html>
